@@ -449,7 +449,7 @@
             document.getElementById("tabla").innerHTML = ""; document.getElementById("thead").innerHTML = ""; 
             document.getElementById("resultado").style.display = "none"; document.getElementById("mensaje").style.display = "none"; 
         }
-        function toggleModo() { document.body.classList.toggle("light"); }
+        function toggleModo() { document.body.classList.toggle("light");   }
         async function gestionarExportacion() {
             const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("Resultados");
             const rows = []; document.querySelectorAll("#mainTable tr").forEach(tr => {
