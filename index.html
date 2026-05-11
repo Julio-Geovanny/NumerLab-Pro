@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NumérLab Pro | Suite de Métodos Numéricos</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+
+        .light {
+            --bg-main: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        /* Pantallas de Autenticación y Bienvenida */
+        #auth-container, #welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            padding: 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0; left: 0;
+            z-index: 1000;
+            background: var(--bg-main);
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            padding: 3rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+        }
+
+        /* Interfaz Principal */
+        #main-app {
+            display: none;
+            flex-direction: row;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            box-sizing: border-box;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: calc(100vw - 380px);
+        }
+
+        .logo {
+            font-size: 1.4rem; font-weight: 800; color: var(--accent);
+            margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;
+        }
+
+        .section-title {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-muted); margin: 1.2rem 0 0.6rem; font-weight: 700;
+        }
+
+        select, input {
+            width: 100%; padding: 0.65rem 0.8rem; border-radius: 0.4rem;
+            border: 1px solid var(--border); background: var(--bg-main);
+            color: var(--text-main); font-size: 0.9rem; margin-bottom: 0.8rem;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 0.75rem; border-radius: 0.4rem; font-weight: 600;
+            cursor: pointer; border: none; font-size: 0.85rem; width: 100%;
+            margin-bottom: 0.5rem; transition: 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-google { background: #ffffff; color: #000; border: 1px solid #ddd; }
+        .btn-secondary { background: var(--border); color: var(--text-main); }
+
+        .card {
+            background: var(--bg-card); border-radius: 0.8rem;
+            border: 1px solid var(--border); padding: 1.5rem;
+            margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-wrapper { overflow-x: auto; border-radius: 0.4rem; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        th { background: #111d2f; padding: 0.8rem; color: var(--text-muted); border-bottom: 2px solid var(--border); }
+        td { padding: 0.6rem; border-bottom: 1px solid var(--border); text-align: center; }
+
+        .result-box {
+            margin-top: 1.5rem; padding: 1.2rem; border-radius: 0.6rem;
+            background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success);
+            color: var(--success); display: none;
+        }
+
+        .error { display: block !important; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 0.8rem;}
+        .hidden { display: none !important; }
+        .input-group-row { display: flex; gap: 10px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-container">
+        <div class="auth-card">
+            <div class="logo" style="justify-content: center; font-size: 2rem; margin-bottom: 1rem;">
+                <i class="fa-solid fa-square-root-variable"></i> NumérLab Pro
+            </div>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Suite Profesional de Métodos Numéricos</p>
+            <button class="btn btn-google" onclick="loginGoogle()">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="18"> 
+                Iniciar sesión con Google
+            </button>
+            <div id="auth-error"></div>
+        </div>
+    </div>
+
+    <div id="welcome-screen" class="hidden">
+        <div class="auth-card">
+            <h1 id="user-greeting" style="color: var(--accent);">¡Bienvenido!</h1>
+            <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem;">
+                Has accedido a NumérLab Pro, una plataforma diseñada para el cálculo y análisis de métodos numéricos con alta precisión.
+            </p>
+            <button class="btn btn-primary" onclick="entrarApp()" style="padding: 1rem 2rem; width: auto; font-size: 1rem;">
+                Empezar <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="main-app">
+        <aside class="sidebar">
+            <div class="logo"><i class="fa-solid fa-square-root-variable"></i> NumérLab Pro</div>
+            <div id="user-display" style="font-size: 0.75rem; color: var(--accent); margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);"></div>
+
+            <div class="section-title">Método Seleccionado</div>
+            <select id="metodo" onchange="cambiarMetodo()">
+                <option value="" disabled selected>-- Seleccione un método --</option>
+                <option value="bairstow">Método de Bairstow</option>
+                <option value="newton">Newton-Raphson N x N</option>
+                <option value="muller">Müller (Raíces)</option>
+                <option value="horner">Horner (Polinomios)</option>
+            </select>
+
+            <div id="inputsContainer">
+                <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Configura los parámetros del método.</p>
+            </div>
+
+            <div class="section-title">Acciones</div>
+            <button class="btn btn-primary" onclick="ejecutarCalcular()"><i class="fa-solid fa-play"></i> Calcular</button>
+            <button class="btn btn-secondary" onclick="limpiarTodo()"><i class="fa-solid fa-eraser"></i> Limpiar</button>
+            <button class="btn btn-secondary" onclick="gestionarExportacion()"><i class="fa-solid fa-file-excel"></i> Exportar Excel</button>
+            <button class="btn btn-secondary" onclick="toggleModo()"><i class="fa-solid fa-circle-half-stroke"></i> Cambiar Tema</button>
+            
+            <button class="btn btn-secondary" onclick="logout()" style="margin-top: auto; color: var(--danger); background: rgba(239, 68, 68, 0.05);">
+                <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+            </button>
+            <div id="mensaje"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2 id="titulo-panel" style="margin: 0; font-size: 1.1rem;">Resultados de las Iteraciones</h2>
+                    <span id="badge-metodo" style="background: var(--border); padding: 4px 10px; border-radius: 15px; font-size: 0.65rem; color: var(--accent); text-transform: uppercase;">Inactivo</span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="mainTable">
+                        <thead id="thead"></thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="resultado" class="result-box"></div>
+        </main>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN DE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9zCBrcMNpgaZETKDJeibvT3M0n2FCP98",
+            authDomain: "numerlab-pro.firebaseapp.com",
+            projectId: "numerlab-pro",
+            storageBucket: "numerlab-pro.firebasestorage.app",
+            messagingSenderId: "292913569958",
+            appId: "1:292913569958:web:72a6e3497e18d4d097d467",
+            measurementId: "G-T7HXGKHWFH"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        function loginGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(e => {
+                document.getElementById('auth-error').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            });
+        }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('auth-container').classList.add('hidden');
+                document.getElementById('welcome-screen').classList.remove('hidden');
+                document.getElementById('user-greeting').innerText = `¡Bienvenido, ${user.displayName.split(' ')[0]}!`;
+                document.getElementById('user-display').innerText = `Cuenta: ${user.email}`;
+            } else {
+                document.getElementById('main-app').style.display = 'none';
+                document.getElementById('welcome-screen').classList.add('hidden');
+                document.getElementById('auth-container').classList.remove('hidden');
+            }
+        });
+
+        function entrarApp() {
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('main-app').style.display = 'flex';
+        }
+
+        function logout() { auth.signOut(); }
+
+        // MOTOR MATEMÁTICO Y LÓGICA DE MÉTODOS (PRESERVADA)
+        function procesarFuncion(texto) {
+            return texto.replace(/(\d)([a-zA-Z])/g, '$1*$2')
+                        .replace(/(\))(\()/g, '$1*$2')
+                        .replace(/(\))([a-zA-Z\d])/g, '$1*$2');
+        }
+
+        function evaluarMath(expr, scope) {
+            try {
+                const node = math.parse(procesarFuncion(expr));
+                return node.compile().evaluate(scope);
+            } catch (e) {
+                throw new Error("Error en la expresión matemática");
+            }
+        }
+
+        let metodoActual = "";
+        let nNewton = 2;
+
+        function cambiarMetodo() {
+            metodoActual = document.getElementById("metodo").value;
+            const container = document.getElementById("inputsContainer");
+            const badge = document.getElementById("badge-metodo");
+            limpiarTodo();
+
+            if (metodoActual === "bairstow") {
+                badge.innerText = "Bairstow";
+                container.innerHTML = `
+                    <div class="section-title">Ecuación</div>
+                    <input id="poly_b" placeholder="Polinomio. Ej: x^3+3x^2-x-3" value="x^3+3x^2-x-3">
+                    <input id="r_in" placeholder="r inicial" value="-0.33">
+                    <input id="s_in" placeholder="s inicial" value="-1">
+                    <input id="tol_b" placeholder="Tolerancia" value="0.00001">`;
+            } else if (metodoActual === "newton") {
+                badge.innerText = "Newton NxN";
+                renderNewtonInputs();
+            } else if (metodoActual === "muller") {
+                badge.innerText = "Müller";
+                container.innerHTML = `
+                    <div class="section-title">Ecuación f(x)</div>
+                    <input id="f_muller" placeholder="Ej: x^3 - 13x - 12">
+                    <div class="section-title">Puntos Iniciales</div>
+                    <div class="input-group-row"><input id="mx0" placeholder="x0"><input id="mx1" placeholder="x1"><input id="mx2" placeholder="x2"></div>
+                    <input id="tol_m" value="0.0001" placeholder="Tolerancia">`;
+            } else if (metodoActual === "horner") {
+                badge.innerText = "Horner";
+                container.innerHTML = `
+                    <div class="section-title">Polinomio</div>
+                    <input id="poly_h" placeholder="Ej: 2x^3 - 6x^2 + 2x - 1">
+                    <input id="c_h" placeholder="Valor c (Punto)">`;
+            }
+        }
+
+        function renderNewtonInputs() {
+            const container = document.getElementById("inputsContainer");
+            let html = `<div class="section-title">Dimensión</div>
+                <div class="input-group-row">
+                    <button class="btn btn-secondary" onclick="ajustarNewton(-1)">-</button>
+                    <input id="dim" value="${nNewton}" readonly style="text-align:center">
+                    <button class="btn btn-secondary" onclick="ajustarNewton(1)">+</button>
+                </div>`;
+            for(let i=0; i<nNewton; i++) html += `<input id="fn${i}" placeholder="f${i+1}(x, y...)">`;
+            for(let i=0; i<nNewton; i++) {
+                let v = nNewton <= 3 ? ['x','y','z'][i] : `x${i+1}`;
+                html += `<div class="input-group-row"><input id="vn${i}" value="${v}"><input id="vi${i}" placeholder="Inicio"></div>`;
+            }
+            container.innerHTML = html + `<input id="tol_n" value="0.0001" placeholder="Tolerancia">`;
+        }
+
+        function ajustarNewton(d) { nNewton = Math.max(1, nNewton + d); renderNewtonInputs(); }
+
+        function ejecutarCalcular() {
+            if (!metodoActual) return;
+            try {
+                if (metodoActual === "bairstow") calcularBairstow();
+                else if (metodoActual === "newton") calcularNewton();
+                else if (metodoActual === "muller") calcularMuller();
+                else if (metodoActual === "horner") calcularHorner();
+            } catch (e) {
+                mostrarMensaje(e.message, true);
+            }
+        }
+
+        function calcularNewton() {
+            const eqs = [], xA = [], vN = [];
+            for(let i=0; i<nNewton; i++) {
+                eqs.push(document.getElementById(`fn${i}`).value);
+                xA.push(parseFloat(document.getElementById(`vi${i}`).value));
+                vN.push(document.getElementById(`vn${i}`).value.trim());
+            }
+            const tol = parseFloat(document.getElementById("tol_n").value);
+            document.getElementById("thead").innerHTML = `<tr><th>Iter</th>${vN.map(v => `<th>${v}</th>`).join('')}<th>Error</th></tr>`;
+            const tabla = document.getElementById("tabla"); tabla.innerHTML = "";
+
+            for(let k=0; k<20; k++) {
+                const scope = {}; vN.forEach((v, i) => scope[v] = xA[i]);
+                const F = eqs.map(eq => evaluarMath(eq, scope));
+                const J = [];
+                for(let i=0; i<nNewton; i++) {
+                    const fila = [];
+                    for(let j=0; j<nNewton; j++) fila.push(math.derivative(procesarFuncion(eqs[i]), vN[j]).evaluate(scope));
+                    J.push(fila);
+                }
+                const delta = math.lusolve(J, math.multiply(F, -1)).map(d => d[0]);
+                let err = 0;
+                for(let i=0; i<nNewton; i++) { err = Math.max(err, Math.abs(delta[i])); xA[i] += delta[i]; }
+                tabla.innerHTML += `<tr><td>${k}</td>${xA.map(v => `<td>${v.toFixed(6)}</td>`).join('')}<td>${err.toFixed(6)}</td></tr>`;
+                if(err < tol) break;
+            }
+        }
+
+        function extraerCoefs(expr) {
+            let clean = procesarFuncion(expr).replace(/\s+/g, '').replace(/-/g, '+-').replace(/^\+/, '');
+            let terms = clean.split('+').filter(t => t !== "");
+            let map = {}; let max = 0;
+            terms.forEach(t => {
+                let c = 1, d = 0;
+                if (t.includes('x')) {
+                    let p = t.split('x');
+                    c = (p[0]===""||p[0]==="+")?1:(p[0]==="-"?-1:parseFloat(p[0]));
+                    d = p[1]===""?1:(p[1].startsWith('^')?parseInt(p[1].substring(1)):1);
+                } else c = parseFloat(t);
+                map[d] = (map[d]||0) + c; if(d > max) max = d;
+            });
+            let a = []; for(let i=max; i>=0; i--) a.push(map[i]||0); return a;
+        }
+
+        function calcularBairstow() {
+            const a = extraerCoefs(document.getElementById("poly_b").value);
+            let r = parseFloat(document.getElementById("r_in").value), s = parseFloat(document.getElementById("s_in").value);
+            const tol = parseFloat(document.getElementById("tol_b").value), n = a.length - 1;
+            document.getElementById("thead").innerHTML = `<tr><th>I</th><th>R</th><th>S</th><th>Error</th></tr>`;
+            const tabla = document.getElementById("tabla"); tabla.innerHTML = "";
+            let err = 1, iter = 0;
+            while(err > tol && iter < 50) {
+                let b = [a[0]], c = [a[0]];
+                b[1] = a[1] + r*b[0];
+                for(let i=2; i<=n; i++) b[i] = a[i] + r*b[i-1] + s*b[i-2];
+                c[1] = b[1] + r*c[0];
+                for(let i=2; i<n; i++) c[i] = b[i] + r*c[i-1] + s*c[i-2];
+                let det = c[n-2]*c[n-2] - c[n-1]*c[n-3];
+                let dr = (b[n]*c[n-3] - b[n-1]*c[n-2])/det, ds = (b[n-1]*c[n-1] - b[n]*c[n-2])/det;
+                err = Math.max(Math.abs(dr), Math.abs(ds));
+                tabla.innerHTML += `<tr><td>${iter}</td><td>${r.toFixed(4)}</td><td>${s.toFixed(4)}</td><td>${err.toFixed(6)}</td></tr>`;
+                r += dr; s += ds; iter++;
+            }
+        }
+
+        function calcularMuller() {
+            const f = document.getElementById("f_muller").value;
+            let x0 = parseFloat(document.getElementById("mx0").value), x1 = parseFloat(document.getElementById("mx1").value), x2 = parseFloat(document.getElementById("mx2").value);
+            const tol = parseFloat(document.getElementById("tol_m").value);
+            document.getElementById("thead").innerHTML = `<tr><th>i</th><th>x2</th><th>f(x2)</th><th>Error</th></tr>`;
+            const tabla = document.getElementById("tabla"); tabla.innerHTML = "";
+            for(let i=0; i<20; i++) {
+                let f0 = evaluarMath(f, {x:x0}), f1 = evaluarMath(f, {x:x1}), f2 = evaluarMath(f, {x:x2});
+                let h1 = x1-x0, h2 = x2-x1, d1 = (f1-f0)/h1, d2 = (f2-f1)/h2;
+                let a = (d2-d1)/(h2+h1), b = a*h2 + d2, c = f2;
+                let disc = Math.sqrt(Math.abs(b*b - 4*a*c));
+                let den = Math.abs(b+disc) > Math.abs(b-disc) ? b+disc : b-disc;
+                let x3 = x2 - (2*c)/den; let err = Math.abs(x3-x2);
+                tabla.innerHTML += `<tr><td>${i}</td><td>${x2.toFixed(6)}</td><td>${f2.toFixed(6)}</td><td>${err.toFixed(6)}</td></tr>`;
+                if(err < tol) break; x0=x1; x1=x2; x2=x3;
+            }
+        }
+
+        function calcularHorner() {
+            const a = extraerCoefs(document.getElementById("poly_h").value);
+            const c = parseFloat(document.getElementById("c_h").value);
+            document.getElementById("thead").innerHTML = `<tr><th>i</th><th>Coef a_i</th><th>Resultado b_i</th></tr>`;
+            const tabla = document.getElementById("tabla"); tabla.innerHTML = "";
+            let b = 0;
+            a.forEach((v, i) => {
+                b = v + (i === 0 ? 0 : b * c);
+                tabla.innerHTML += `<tr><td>${i}</td><td>${v}</td><td>${b.toFixed(4)}</td></tr>`;
+            });
+            document.getElementById("resultado").innerHTML = `Resultado: f(${c}) = ${b.toFixed(6)}`;
+            document.getElementById("resultado").style.display = "block";
+        }
+
+        function mostrarMensaje(t, e) { const m = document.getElementById("mensaje"); m.className = e ? "error" : "ok"; m.innerHTML = t; m.style.display = "block"; }
+        function limpiarTodo() { 
+            document.getElementById("tabla").innerHTML = ""; document.getElementById("thead").innerHTML = ""; 
+            document.getElementById("resultado").style.display = "none"; document.getElementById("mensaje").style.display = "none"; 
+        }
+        function toggleModo() { document.body.classList.toggle("light"); }
+        async function gestionarExportacion() {
+            const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("Resultados");
+            const rows = []; document.querySelectorAll("#mainTable tr").forEach(tr => {
+                const row = []; tr.querySelectorAll("th, td").forEach(td => row.push(td.innerText)); rows.push(row);
+            });
+            ws.addRows(rows); const buffer = await wb.xlsx.writeBuffer();
+            const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buffer])); a.download = "numerlab_resultados.xlsx"; a.click();
+        }
+    </script>
+</body>
+</html>
