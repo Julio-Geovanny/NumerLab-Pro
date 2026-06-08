@@ -7,6 +7,10 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/function-plot/dist/function-plot.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -144,6 +148,33 @@
         .error { display: block !important; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 0.8rem;}
         .hidden { display: none !important; }
         .input-group-row { display: flex; gap: 10px; margin-bottom: 5px; }
+
+        /* Contenedor del Gráfico y Adaptación Dinámica de Tema */
+        #grafico-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.8rem;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            display: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Forzar el cambio de color nativo del SVG mediante tus variables CSS */
+        .function-plot text { fill: var(--text-muted) !important; font-family: 'Inter', sans-serif; }
+        .function-plot .domain { stroke: var(--border) !important; }
+        .function-plot .tick line { stroke: var(--border) !important; opacity: 0.5; }
+
+        /* Aviso de Copyright */
+        .copyright {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            letter-spacing: 0.02em;
+        }
     </style>
 </head>
 <body>
@@ -202,6 +233,7 @@
                 <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
             </button>
             <div id="mensaje"></div>
+            <div class="copyright">&copy; 2026 NumérLab Pro. Todos los derechos reservados.</div>
         </aside>
 
         <main class="main-content">
@@ -219,6 +251,7 @@
                 </div>
             </div>
             <div id="resultado" class="result-box"></div>
+            <div id="grafico-container"></div>
         </main>
     </div>
 
@@ -371,8 +404,16 @@
                 let err = 0;
                 for(let i=0; i<nNewton; i++) { err = Math.max(err, Math.abs(delta[i])); xA[i] += delta[i]; }
                 tabla.innerHTML += `<tr><td>${k}</td>${xA.map(v => `<td>${v.toFixed(6)}</td>`).join('')}<td>${err.toFixed(6)}</td></tr>`;
+                
+                if (err < tol) {
+                    document.getElementById("resultado").innerHTML = `¡Convergencia alcanzada en ${k + 1} iteraciones con un error de ${err.toExponential(4)}!`;
+                    document.getElementById("resultado").style.display = "block";
+                } else if (k === 19) {
+                    mostrarMensaje("Límite de iteraciones (20) alcanzado sin convergencia.", true);
+                }
                 if(err < tol) break;
             }
+            if (nNewton === 1) renderizarGrafico(eqs[0], [xA[0]]);
         }
 
         function extraerCoefs(expr) {
@@ -410,6 +451,15 @@
                 tabla.innerHTML += `<tr><td>${iter}</td><td>${r.toFixed(4)}</td><td>${s.toFixed(4)}</td><td>${err.toFixed(6)}</td></tr>`;
                 r += dr; s += ds; iter++;
             }
+            
+            if (err <= tol) {
+                document.getElementById("resultado").innerHTML = `¡Convergencia alcanzada en ${iter} iteraciones con un error de ${err.toExponential(4)}!`;
+                document.getElementById("resultado").style.display = "block";
+            } else {
+                mostrarMensaje("Límite de iteraciones (50) alcanzado sin convergencia.", true);
+            }
+            
+            renderizarGrafico(document.getElementById("poly_b").value, []);
         }
 
         function calcularMuller() {
@@ -418,16 +468,25 @@
             const tol = parseFloat(document.getElementById("tol_m").value);
             document.getElementById("thead").innerHTML = `<tr><th>i</th><th>x2</th><th>f(x2)</th><th>Error</th></tr>`;
             const tabla = document.getElementById("tabla"); tabla.innerHTML = "";
+            let x3;
             for(let i=0; i<20; i++) {
                 let f0 = evaluarMath(f, {x:x0}), f1 = evaluarMath(f, {x:x1}), f2 = evaluarMath(f, {x:x2});
                 let h1 = x1-x0, h2 = x2-x1, d1 = (f1-f0)/h1, d2 = (f2-f1)/h2;
                 let a = (d2-d1)/(h2+h1), b = a*h2 + d2, c = f2;
                 let disc = Math.sqrt(Math.abs(b*b - 4*a*c));
                 let den = Math.abs(b+disc) > Math.abs(b-disc) ? b+disc : b-disc;
-                let x3 = x2 - (2*c)/den; let err = Math.abs(x3-x2);
+                x3 = x2 - (2*c)/den; let err = Math.abs(x3-x2);
                 tabla.innerHTML += `<tr><td>${i}</td><td>${x2.toFixed(6)}</td><td>${f2.toFixed(6)}</td><td>${err.toFixed(6)}</td></tr>`;
+                
+                if (err < tol) {
+                    document.getElementById("resultado").innerHTML = `¡Convergencia alcanzada en ${i + 1} iteraciones con un error de ${err.toExponential(4)}!`;
+                    document.getElementById("resultado").style.display = "block";
+                } else if (i === 19) {
+                    mostrarMensaje("Límite de iteraciones (20) alcanzado sin convergencia.", true);
+                }
                 if(err < tol) break; x0=x1; x1=x2; x2=x3;
             }
+            renderizarGrafico(f, [x3]);
         }
 
         function calcularHorner() {
@@ -442,14 +501,54 @@
             });
             document.getElementById("resultado").innerHTML = `Resultado: f(${c}) = ${b.toFixed(6)}`;
             document.getElementById("resultado").style.display = "block";
+            renderizarGrafico(document.getElementById("poly_h").value, [c]);
+        }
+
+        function renderizarGrafico(expresion, puntos = []) {
+            const container = document.getElementById("grafico-container");
+            container.style.display = "block";
+            container.innerHTML = ""; // Limpiar gráfico anterior
+
+            try {
+                // Formatear los puntos para function-plot
+                const puntosGrafico = puntos.map(p => [p, 0]);
+
+                functionPlot({
+                    target: "#grafico-container",
+                    width: container.clientWidth - 32, // Ajuste por el padding
+                    height: 350,
+                    grid: true,
+                    data: [
+                        { 
+                            fn: expresion, 
+                            color: "#38bdf8", // Color accent 
+                            graphType: "polyline"
+                        },
+                        {
+                            points: puntosGrafico,
+                            fnType: "points",
+                            graphType: "scatter",
+                            color: "#ef4444", // Color danger para destacar la raíz
+                            attr: { r: 5 } // Tamaño del punto
+                        }
+                    ]
+                });
+            } catch (e) {
+                console.warn("La expresión no es compatible para el renderizado 2D:", e.message);
+                container.style.display = "none";
+            }
         }
 
         function mostrarMensaje(t, e) { const m = document.getElementById("mensaje"); m.className = e ? "error" : "ok"; m.innerHTML = t; m.style.display = "block"; }
+        
         function limpiarTodo() { 
             document.getElementById("tabla").innerHTML = ""; document.getElementById("thead").innerHTML = ""; 
             document.getElementById("resultado").style.display = "none"; document.getElementById("mensaje").style.display = "none"; 
+            document.getElementById("grafico-container").style.display = "none";
         }
+        
         function toggleModo() { document.body.classList.toggle("light");   }
+        
         async function gestionarExportacion() {
             const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("Resultados");
             const rows = []; document.querySelectorAll("#mainTable tr").forEach(tr => {
